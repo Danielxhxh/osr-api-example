@@ -56,3 +56,14 @@ uvicorn main:app --reload --port 3000
 }
 ```
 Note: Other examples at [website](https://docs.gitlab.com/ee/api/commits.html).
+
+
+### Get all files
+`GET /repositories/{repository_id}/files`
+
+
+### Get file's content
+`GET /repositories/{repository_id}/files/{file_id}`
+
+
+

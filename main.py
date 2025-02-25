@@ -6,6 +6,7 @@ from pydantic import BaseModel
 from gitlab_client import get_gitlab_client
 from typing import Optional, List, Any
 import uvicorn
+import base64
 
 gl = get_gitlab_client()
 
@@ -30,6 +31,41 @@ app.add_middleware(
     allow_methods=["*"],  # Allows all methods
     allow_headers=["*"],  # Allows all headers
 )
+
+
+
+@app.get("/repositories/{repository_id}/files")
+async def get_project_files(repository_id: int):
+    try:
+        project = gl.projects.get(repository_id)
+        default_branch = project.default_branch
+        items = project.repository_tree(ref=default_branch, path="", recursive=True, per_page=100)
+        return JSONResponse(content=items, status_code=200)
+
+    except GitlabGetError as e:
+        status_code = getattr(e, "response_code", 500)
+        message = "Access forbidden: insufficient permissions" if status_code == 403 else "Project not found" if status_code == 404 else "An error occurred while retrieving the project"
+        return JSONResponse(content={"status": "error", "message": message}, status_code=status_code)
+
+
+
+@app.get("/repositories/{repository_id}/files/{file_id}")
+async def get_file_content(repository_id: int, file_id: str):
+    try:
+        project = gl.projects.get(repository_id)
+        file_info = project.repository_blob(file_id)
+
+        content = base64.b64decode(file_info['content']).decode('utf-8')
+        size = file_info['size']
+
+        return JSONResponse(content={"content": content, "size": size}, status_code=200)
+
+    except GitlabGetError as e:
+        status_code = getattr(e, "response_code", 500)
+        message = "Access forbidden: insufficient permissions" if status_code == 403 else "Project not found" if status_code == 404 else "An error occurred while retrieving the file"
+        return JSONResponse(content={"status": "error", "message": message}, status_code=status_code)
+
+
 
 @app.post("/project/create")
 async def create_project(data: NewProject):
